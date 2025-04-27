@@ -9,13 +9,114 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      goals: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      progress_snapshots: {
+        Row: {
+          created_at: string | null
+          date: string
+          goal_id: string
+          id: string
+          progress_percentage: number
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string
+          goal_id: string
+          id?: string
+          progress_percentage: number
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          goal_id?: string
+          id?: string
+          progress_percentage?: number
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          completed: boolean | null
+          created_at: string | null
+          date: string | null
+          id: string
+          is_subtask: boolean | null
+          original_date: string | null
+          parent_id: string | null
+          progress: number | null
+          status: string | null
+          title: string
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          is_subtask?: boolean | null
+          original_date?: string | null
+          parent_id?: string | null
+          progress?: number | null
+          status?: string | null
+          title: string
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          is_subtask?: boolean | null
+          original_date?: string | null
+          parent_id?: string | null
+          progress?: number | null
+          status?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_daily_completion_rate: {
+        Args: { p_date: string }
+        Returns: {
+          total_tasks: number
+          completed_tasks: number
+          completion_rate: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
