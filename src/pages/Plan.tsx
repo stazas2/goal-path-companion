@@ -44,7 +44,7 @@ const Plan = () => {
   const weekDates = getWeekDates();
   
   const getTasksForDate = (date: string) => {
-    return tasks?.filter(task => task.date === date);
+    return tasks?.filter(task => task.date === date) || [];
   };
   
   const getTasksForWeek = () => {
@@ -68,7 +68,7 @@ const Plan = () => {
         .order('created_at');
       
       if (error) throw error;
-      return data;
+      return data || [];
     }
   });
 
@@ -83,7 +83,7 @@ const Plan = () => {
         .order('created_at');
       
       if (error) throw error;
-      return data;
+      return data || [];
     }
   });
 
@@ -234,13 +234,13 @@ const Plan = () => {
                 </div>
               )}
               
-              {tasks?.length === 0 ? (
+              {!tasks?.length ? (
                 <div className="text-center py-6 text-muted-foreground">
                   На этот день задач нет
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {tasks?.map((task) => (
+                  {tasks.map((task) => (
                     <div key={task.id} className="space-y-2">
                       <div className="flex items-center space-x-4">
                         <Checkbox 
@@ -318,26 +318,18 @@ const Plan = () => {
                   ) : (
                     <div className="space-y-2">
                       {day.tasks.map((task) => (
-                        <div key={task.id} className="task-item group">
+                        <div key={task.id} className="flex items-center space-x-2 task-item group">
                           <Checkbox 
                             id={`task-${task.id}`} 
-                            checked={task.completed}
-                            onCheckedChange={() => {}}
+                            checked={task.status === 'completed'}
+                            onCheckedChange={() => handleStatusChange(task.id, task.status === 'completed' ? 'not_started' : 'completed')}
                           />
                           <label
                             htmlFor={`task-${task.id}`}
-                            className={`flex-1 text-sm ${task.completed ? "line-through text-muted-foreground" : ""}`}
+                            className={`flex-1 text-sm ${task.status === 'completed' ? "line-through text-muted-foreground" : ""}`}
                           >
                             {task.title}
                           </label>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => {}}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
                         </div>
                       ))}
                     </div>
