@@ -1,30 +1,70 @@
 
-import { useState } from "react";
-import { useAppContext } from "@/context/app-context";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, X, Check } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export function DailyTasks() {
-  const { tasks, toggleTask, addTask, removeTask } = useAppContext();
   const [newTask, setNewTask] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
-  const todayTasks = tasks.filter(task => task.date === today);
+  
+  const { data: tasks, refetch: refetchTasks } = useQuery({
+    queryKey: ['daily-tasks'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('date', today)
+        .is('parent_id', null)
+        .order('created_at');
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (newTask.trim()) {
-      addTask({
-        title: newTask.trim(),
-        completed: false,
-        date: today
-      });
+      const { error } = await supabase
+        .from('tasks')
+        .insert({
+          title: newTask.trim(),
+          date: today,
+          status: 'not_started'
+        });
+
+      if (error) {
+        toast.error("Не удалось создать задачу");
+        return;
+      }
+
       setNewTask("");
       setShowAddForm(false);
+      await refetchTasks();
+      toast.success("Задача создана");
     }
+  };
+
+  const handleToggleTask = async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'completed' ? 'not_started' : 'completed';
+    
+    const { error } = await supabase
+      .from('tasks')
+      .update({ status: newStatus })
+      .eq('id', taskId);
+
+    if (error) {
+      toast.error("Не удалось обновить статус задачи");
+      return;
+    }
+
+    await refetchTasks();
   };
 
   return (
@@ -63,34 +103,46 @@ export function DailyTasks() {
           </div>
         )}
 
-        {todayTasks.length === 0 ? (
+        {!tasks?.length ? (
           <div className="text-center py-6 text-muted-foreground">
             На сегодня задач нет
           </div>
         ) : (
           <div className="space-y-2">
-            {todayTasks.map((task) => (
+            {tasks.map((task) => (
               <div key={task.id} className="task-item group">
-                <Checkbox 
-                  id={`task-${task.id}`} 
-                  checked={task.completed}
-                  onCheckedChange={() => toggleTask(task.id)}
-                />
-                <label
-                  htmlFor={`task-${task.id}`}
-                  className={`flex-1 text-sm ${task.completed ? "line-through text-muted-foreground" : ""}`}
-                >
-                  {task.title}
-                </label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => removeTask(task.id)}
-                >
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Удалить</span>
-                </Button>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={task.status === 'completed'}
+                    onChange={() => handleToggleTask(task.id, task.status)}
+                    className="rounded border-gray-300"
+                  />
+                  <label className={`flex-1 ${task.status === 'completed' ? "line-through text-muted-foreground" : ""}`}>
+                    {task.title}
+                  </label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={async () => {
+                      const { error } = await supabase
+                        .from('tasks')
+                        .delete()
+                        .eq('id', task.id);
+                      
+                      if (error) {
+                        toast.error("Не удалось удалить задачу");
+                        return;
+                      }
+                      
+                      await refetchTasks();
+                      toast.success("Задача удалена");
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

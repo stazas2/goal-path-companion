@@ -1,27 +1,28 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { format, addDays, startOfWeek, startOfDay } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, Calendar as CalendarIcon, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, Plus } from "lucide-react";
 import { TaskStatistics } from "@/components/plan/TaskStatistics";
 import { TaskStatusSelect } from "@/components/plan/TaskStatusSelect";
 import { SubtasksList } from "@/components/plan/SubtasksList";
+import { WeekView } from "@/components/plan/WeekView";
+import { CompletedTasks } from "@/components/plan/CompletedTasks";
+import { AddTaskForm } from "@/components/plan/AddTaskForm";
 import { toast } from "sonner";
 
-// Format selected date to ISO string (YYYY-MM-DD)
 const formatDateToIso = (date: Date) => {
   return date.toISOString().split('T')[0];
 };
 
 const Plan = () => {
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [view, setView] = useState<"day" | "week">("day");
   const [newTask, setNewTask] = useState("");
@@ -98,7 +99,10 @@ const Plan = () => {
       return;
     }
     
-    refetchTasks();
+    await Promise.all([
+      refetchTasks(),
+      queryClient.invalidateQueries({ queryKey: ['daily-tasks'] }),
+    ]);
     toast.success("Статус задачи обновлен");
   };
 
@@ -116,7 +120,10 @@ const Plan = () => {
       return;
     }
     
-    refetchTasks();
+    await Promise.all([
+      refetchTasks(),
+      queryClient.invalidateQueries({ queryKey: ['daily-tasks'] }),
+    ]);
     toast.success("Задача отложена на завтра");
   };
 
@@ -137,29 +144,12 @@ const Plan = () => {
 
       setNewTask("");
       setShowAddTask(false);
-      refetchTasks();
+      await Promise.all([
+        refetchTasks(),
+        queryClient.invalidateQueries({ queryKey: ['daily-tasks'] }),
+      ]);
       toast.success("Задача создана");
     }
-  };
-
-  const handleAddSubtask = async (parentId: string, title: string) => {
-    const { error } = await supabase
-      .from('tasks')
-      .insert({
-        title,
-        parent_id: parentId,
-        date: selectedDateIso,
-        is_subtask: true,
-        status: 'not_started'
-      });
-
-    if (error) {
-      toast.error("Не удалось создать подзадачу");
-      return;
-    }
-
-    refetchTasks();
-    toast.success("Подзадача создана");
   };
 
   return (
@@ -190,6 +180,7 @@ const Plan = () => {
       </div>
       
       <TaskStatistics date={selectedDateIso} />
+      <CompletedTasks date={selectedDateIso} />
       
       <Tabs value={view} onValueChange={(v) => setView(v as "day" | "week")}>
         <TabsList className="grid grid-cols-2 mb-6">
@@ -216,22 +207,12 @@ const Plan = () => {
             </CardHeader>
             <CardContent>
               {showAddTask && (
-                <div className="flex items-center space-x-2 mb-4">
-                  <Input
-                    value={newTask}
-                    onChange={(e) => setNewTask(e.target.value)}
-                    placeholder="Новая задача"
-                    className="flex-1"
-                    onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
-                    autoFocus
-                  />
-                  <Button variant="ghost" size="icon" onClick={() => setShowAddTask(false)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" onClick={handleAddTask}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+                <AddTaskForm
+                  value={newTask}
+                  onChange={setNewTask}
+                  onSubmit={handleAddTask}
+                  onCancel={() => setShowAddTask(false)}
+                />
               )}
               
               {!tasks?.length ? (
@@ -301,43 +282,11 @@ const Plan = () => {
           </Card>
         </TabsContent>
         
-        <TabsContent value="week" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {getTasksForWeek().map((day) => (
-              <Card key={day.date}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">
-                    {format(new Date(day.date), "EEEE, d MMMM", { locale: ru })}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {day.tasks.length === 0 ? (
-                    <div className="text-center py-2 text-muted-foreground text-sm">
-                      Нет задач
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {day.tasks.map((task) => (
-                        <div key={task.id} className="flex items-center space-x-2 task-item group">
-                          <Checkbox 
-                            id={`task-${task.id}`} 
-                            checked={task.status === 'completed'}
-                            onCheckedChange={() => handleStatusChange(task.id, task.status === 'completed' ? 'not_started' : 'completed')}
-                          />
-                          <label
-                            htmlFor={`task-${task.id}`}
-                            className={`flex-1 text-sm ${task.status === 'completed' ? "line-through text-muted-foreground" : ""}`}
-                          >
-                            {task.title}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        <TabsContent value="week">
+          <WeekView 
+            days={getTasksForWeek()} 
+            onTaskStatusChange={handleStatusChange}
+          />
         </TabsContent>
       </Tabs>
     </div>
