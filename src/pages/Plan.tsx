@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useTasks } from "@/hooks/useTasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -16,13 +15,13 @@ import { WeekView } from "@/components/plan/WeekView";
 import { CompletedTasks } from "@/components/plan/CompletedTasks";
 import { AddTaskForm } from "@/components/plan/AddTaskForm";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const formatDateToIso = (date: Date) => {
   return date.toISOString().split('T')[0];
 };
 
-const Plan = () => {
-  const queryClient = useQueryClient();
+function Plan() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [view, setView] = useState<"day" | "week">("day");
   const [newTask, setNewTask] = useState("");
@@ -58,98 +57,33 @@ const Plan = () => {
     return weekTasks;
   };
 
-  const { data: tasks, refetch: refetchTasks } = useQuery({
-    queryKey: ['tasks', selectedDateIso],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('date', selectedDateIso)
-        .is('parent_id', null)
-        .order('created_at');
-      
-      if (error) throw error;
-      return data || [];
-    }
-  });
+  const { data: tasks, addTask: createTask, updateTask } = useTasks({ date: selectedDateIso });
 
-  const { data: subtasks } = useQuery({
-    queryKey: ['subtasks', selectedTask],
-    enabled: !!selectedTask,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('parent_id', selectedTask)
-        .order('created_at');
-      
-      if (error) throw error;
-      return data || [];
-    }
-  });
+  const { data: subtasks, addTask: createSubtask, updateTask: updateSubtask } = useTasks({ parentId: selectedTask });
 
-  const handleStatusChange = async (taskId: string, status: string) => {
-    const { error } = await supabase
-      .from('tasks')
-      .update({ status })
-      .eq('id', taskId);
-
-    if (error) {
-      toast.error("Не удалось обновить статус задачи");
-      return;
+  const handleStatusChange = (taskId: string, status: string) => {
+    if (subtasks && subtasks.find(t => t.id === taskId)) {
+      updateSubtask({ id: taskId, status });
+    } else {
+      updateTask({ id: taskId, status });
     }
-    
-    await Promise.all([
-      refetchTasks(),
-      queryClient.invalidateQueries({ queryKey: ['daily-tasks'] }),
-    ]);
-    toast.success("Статус задачи обновлен");
   };
 
-  const handlePostponeTask = async (taskId: string) => {
-    const { error } = await supabase
-      .from('tasks')
-      .update({ 
-        date: format(addDays(new Date(selectedDateIso), 1), 'yyyy-MM-dd'),
-        status: 'postponed'
-      })
-      .eq('id', taskId);
-
-    if (error) {
-      toast.error("Не удалось отложить задачу");
-      return;
-    }
-    
-    await Promise.all([
-      refetchTasks(),
-      queryClient.invalidateQueries({ queryKey: ['daily-tasks'] }),
-    ]);
-    toast.success("Задача отложена на завтра");
+  const handlePostponeTask = (taskId: string) => {
+    const nextDate = format(addDays(new Date(selectedDateIso), 1), 'yyyy-MM-dd');
+    updateTask({ id: taskId, date: nextDate, status: 'postponed' });
   };
 
-  const handleAddTask = async () => {
+  const handleAddTask = () => {
     if (newTask.trim()) {
-      const { error } = await supabase
-        .from('tasks')
-        .insert({
-          title: newTask.trim(),
-          date: selectedDateIso,
-          status: 'not_started'
-        });
-
-      if (error) {
-        toast.error("Не удалось создать задачу");
-        return;
-      }
-
-      setNewTask("");
+      createTask({ title: newTask.trim(), date: selectedDateIso, status: 'not_started' });
+      setNewTask('');
       setShowAddTask(false);
-      await Promise.all([
-        refetchTasks(),
-        queryClient.invalidateQueries({ queryKey: ['daily-tasks'] }),
-      ]);
-      toast.success("Задача создана");
     }
+  };
+
+  const handleAddSubtask = (parentId: string, title: string) => {
+    createSubtask({ title, parent_id: parentId, status: 'not_started' });
   };
 
   return (
@@ -201,6 +135,7 @@ const Plan = () => {
                 size="sm" 
                 className="h-8 w-8 p-0"
                 onClick={() => setShowAddTask(!showAddTask)}
+                aria-label="Добавить новую задачу"
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -291,6 +226,6 @@ const Plan = () => {
       </Tabs>
     </div>
   );
-};
+}
 
 export default Plan;

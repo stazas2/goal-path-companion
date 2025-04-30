@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +12,7 @@ import Plan from "./pages/Plan";
 import Reflection from "./pages/Reflection";
 import Motivation from "./pages/Motivation";
 import NotFound from "./pages/NotFound";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -24,16 +24,18 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <MainLayout>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/goal-setup" element={<GoalSetup />} />
-                <Route path="/plan" element={<Plan />} />
-                <Route path="/reflection" element={<Reflection />} />
-                <Route path="/motivation" element={<Motivation />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </MainLayout>
+            <ErrorBoundary>
+              <MainLayout>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/goal-setup" element={<GoalSetup />} />
+                  <Route path="/plan" element={<Plan />} />
+                  <Route path="/reflection" element={<Reflection />} />
+                  <Route path="/motivation" element={<Motivation />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </MainLayout>
+            </ErrorBoundary>
           </BrowserRouter>
         </TooltipProvider>
       </AppProvider>

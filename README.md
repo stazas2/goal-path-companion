@@ -71,3 +71,17 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build production bundle
+- `npm run format` - Run Prettier to format code
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Run ESLint with auto-fix
+- `npm run test` - Run unit tests with Jest
+- `npm run test:ci` - Run tests with coverage report
+- `npm run storybook` - Launch Storybook
+- `npm run build-storybook` - Build Storybook static site
+- `npm run cypress:open` - Open Cypress test runner
+- `npm run cypress:run` - Run Cypress end-to-end tests
