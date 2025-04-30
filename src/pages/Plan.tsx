@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useCallback, memo } from "react";
 import { useTasks } from "@/hooks/useTasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,12 +16,81 @@ import { SubtasksList } from "@/components/plan/SubtasksList";
 import { WeekView } from "@/components/plan/WeekView";
 import { CompletedTasks } from "@/components/plan/CompletedTasks";
 import { AddTaskForm } from "@/components/plan/AddTaskForm";
+import { DatePickerDialog } from "@/components/plan/DatePickerDialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const formatDateToIso = (date: Date) => {
   return date.toISOString().split('T')[0];
 };
+
+// Memoized Task component for better performance
+const Task = memo(({ 
+  task, 
+  onToggle, 
+  onStatusChange, 
+  onPostpone, 
+  onAddSubtask,
+  selectedTaskId,
+  setSelectedTaskId,
+  subtasks,
+  onToggleSubtask,
+  onRemoveSubtask
+}) => {
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  
+  return (
+    <div key={task.id} className="space-y-2">
+      <div className="flex items-center space-x-4">
+        <Checkbox 
+          checked={task.status === 'completed'}
+          onCheckedChange={() => onToggle(task.id, task.status === 'completed' ? 'not_started' : 'completed')}
+        />
+        <span className={task.status === 'completed' ? "line-through text-muted-foreground" : ""}>
+          {task.title}
+        </span>
+        <div className="ml-auto flex items-center space-x-2">
+          <TaskStatusSelect
+            status={task.status}
+            onStatusChange={(status) => onStatusChange(task.id, status)}
+          />
+          <Button
+            variant="outline"
+            onClick={() => setIsDatePickerOpen(true)}
+          >
+            Отложить
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSelectedTaskId(selectedTaskId === task.id ? null : task.id)}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      
+      {selectedTaskId === task.id && (
+        <SubtasksList
+          parentId={task.id}
+          tasks={subtasks || []}
+          onAddSubtask={(title) => onAddSubtask(task.id, title)}
+          onToggleSubtask={onToggleSubtask}
+          onRemoveSubtask={onRemoveSubtask}
+        />
+      )}
+      
+      <DatePickerDialog
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        onSelectDate={(date) => onPostpone(task.id, date)}
+        title="Выберите дату для переноса задачи"
+      />
+    </div>
+  );
+});
+
+Task.displayName = 'Task';
 
 function Plan() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -34,57 +104,92 @@ function Plan() {
   
   const selectedDateIso = selectedDate ? formatDateToIso(selectedDate) : formatDateToIso(today);
   
-  const getWeekDates = () => {
+  const getWeekDates = useCallback(() => {
     const dates = [];
     for (let i = 0; i < 7; i++) {
       dates.push(addDays(currentWeekStart, i));
     }
     return dates;
-  };
+  }, [currentWeekStart]);
   
   const weekDates = getWeekDates();
   
-  const getTasksForDate = (date: string) => {
-    return tasks?.filter(task => task.date === date) || [];
-  };
+  const getTasksForDate = useCallback((date: string, tasksList) => {
+    return tasksList?.filter(task => task.date === date) || [];
+  }, []);
   
-  const getTasksForWeek = () => {
+  const getTasksForWeek = useCallback(() => {
     const weekTasks = [];
     for (let i = 0; i < 7; i++) {
       const date = formatDateToIso(addDays(currentWeekStart, i));
-      const tasksForDate = getTasksForDate(date);
+      const tasksForDate = getTasksForDate(date, tasks);
       weekTasks.push({ date, tasks: tasksForDate });
     }
     return weekTasks;
-  };
+  }, [currentWeekStart, getTasksForDate, tasks]);
 
   const { data: tasks, addTask, updateTask, refetch: refetchTasks } = useTasks({ date: selectedDateIso });
   const { data: subtasks, addTask: addSubtask, updateTask: updateSubtask } = useTasks({ parentId: selectedTask });
 
-  const handleStatusChange = (taskId: string, status: string) => {
+  const handleStatusChange = useCallback((taskId: string, status: string) => {
     if (subtasks && subtasks.find(t => t.id === taskId)) {
       updateSubtask.mutate({ id: taskId, status });
     } else {
       updateTask.mutate({ id: taskId, status });
     }
-  };
+  }, [subtasks, updateSubtask, updateTask]);
 
-  const handlePostponeTask = (taskId: string) => {
-    const nextDate = format(addDays(new Date(selectedDateIso), 1), 'yyyy-MM-dd');
-    updateTask.mutate({ id: taskId, date: nextDate, status: 'postponed' });
-  };
+  const handlePostponeTask = useCallback((taskId: string, targetDate: Date) => {
+    const nextDate = formatDateToIso(targetDate);
+    updateTask.mutate({ 
+      id: taskId, 
+      date: nextDate, 
+      status: 'postponed' 
+    }, {
+      onSuccess: () => {
+        toast.success("Задача отложена");
+        refetchTasks();
+      }
+    });
+  }, [updateTask, refetchTasks]);
 
-  const handleAddTask = () => {
+  const handleAddTask = useCallback(() => {
     if (newTask.trim()) {
-      addTask.mutate({ title: newTask.trim(), date: selectedDateIso, status: 'not_started' });
-      setNewTask('');
-      setShowAddTask(false);
+      addTask.mutate({ 
+        title: newTask.trim(), 
+        date: selectedDateIso, 
+        status: 'not_started' 
+      }, {
+        onSuccess: () => {
+          setNewTask('');
+          setShowAddTask(false);
+        }
+      });
     }
-  };
+  }, [addTask, newTask, selectedDateIso]);
 
-  const handleAddSubtask = (parentId: string, title: string) => {
-    addSubtask.mutate({ title, parent_id: parentId, status: 'not_started' });
-  };
+  const handleAddSubtask = useCallback((parentId: string, title: string) => {
+    addSubtask.mutate({ 
+      title, 
+      parent_id: parentId, 
+      status: 'not_started' 
+    });
+  }, [addSubtask]);
+  
+  const handleRemoveSubtask = useCallback(async (id: string) => {
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      toast.error("Не удалось удалить подзадачу");
+      return;
+    }
+    
+    refetchTasks();
+    toast.success("Подзадача удалена");
+  }, [refetchTasks]);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -107,6 +212,7 @@ function Plan() {
                   setView("day");
                 }}
                 initialFocus
+                className="pointer-events-auto"
               />
             </PopoverContent>
           </Popover>
@@ -157,59 +263,19 @@ function Plan() {
               ) : (
                 <div className="space-y-4">
                   {tasks.map((task) => (
-                    <div key={task.id} className="space-y-2">
-                      <div className="flex items-center space-x-4">
-                        <Checkbox 
-                          checked={task.status === 'completed'}
-                          onCheckedChange={() => handleStatusChange(task.id, task.status === 'completed' ? 'not_started' : 'completed')}
-                        />
-                        <span className={task.status === 'completed' ? "line-through text-muted-foreground" : ""}>
-                          {task.title}
-                        </span>
-                        <div className="ml-auto flex items-center space-x-2">
-                          <TaskStatusSelect
-                            status={task.status}
-                            onStatusChange={(status) => handleStatusChange(task.id, status)}
-                          />
-                          <Button
-                            variant="outline"
-                            onClick={() => handlePostponeTask(task.id)}
-                          >
-                            Отложить
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setSelectedTask(selectedTask === task.id ? null : task.id)}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {selectedTask === task.id && (
-                        <SubtasksList
-                          parentId={task.id}
-                          tasks={subtasks || []}
-                          onAddSubtask={(title) => handleAddSubtask(task.id, title)}
-                          onToggleSubtask={(id) => handleStatusChange(id, subtasks?.find(t => t.id === id)?.status === 'completed' ? 'not_started' : 'completed')}
-                          onRemoveSubtask={async (id) => {
-                            const { error } = await supabase
-                              .from('tasks')
-                              .delete()
-                              .eq('id', id);
-                            
-                            if (error) {
-                              toast.error("Не удалось удалить подзадачу");
-                              return;
-                            }
-                            
-                            refetchTasks();
-                            toast.success("Подзадача удалена");
-                          }}
-                        />
-                      )}
-                    </div>
+                    <Task
+                      key={task.id}
+                      task={task}
+                      onToggle={handleStatusChange}
+                      onStatusChange={handleStatusChange}
+                      onPostpone={handlePostponeTask}
+                      onAddSubtask={handleAddSubtask}
+                      selectedTaskId={selectedTask}
+                      setSelectedTaskId={setSelectedTask}
+                      subtasks={subtasks}
+                      onToggleSubtask={handleStatusChange}
+                      onRemoveSubtask={handleRemoveSubtask}
+                    />
                   ))}
                 </div>
               )}

@@ -10,7 +10,7 @@ export function useTasks(filters?: { date?: string; parentId?: string }) {
 
   const queryKey = parentId ? ['subtasks', parentId] : ['tasks', date]
 
-  const tasksQuery = useQuery<Tables<'tasks'>[]>({
+  const tasksQuery = useQuery({
     queryKey,
     queryFn: async () => {
       const query = supabase.from('tasks').select('*')
@@ -20,6 +20,7 @@ export function useTasks(filters?: { date?: string; parentId?: string }) {
       if (error) throw error
       return data || []
     },
+    staleTime: 60000, // 1 minute before considering data stale
   })
 
   const addTask = useMutation({

@@ -1,14 +1,43 @@
 
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { memo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, X, Check } from "lucide-react";
-import { useState } from "react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTasks } from "@/hooks/useTasks";
+
+// Memoize task item for better performance
+const TaskItem = memo(({ task, onToggle, onDelete }) => {
+  return (
+    <div key={task.id} className="task-item group">
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          checked={task.status === 'completed'}
+          onCheckedChange={() => onToggle(task.id, task.status)}
+          id={`task-dashboard-${task.id}`}
+        />
+        <label 
+          htmlFor={`task-dashboard-${task.id}`}
+          className={`flex-1 ${task.status === 'completed' ? "line-through text-muted-foreground" : ""}`}
+        >
+          {task.title}
+        </label>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => onDelete(task.id)}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+});
+
+TaskItem.displayName = "TaskItem";
 
 export function DailyTasks() {
   const [newTask, setNewTask] = useState("");
@@ -28,7 +57,6 @@ export function DailyTasks() {
         onSuccess: () => {
           setNewTask("");
           setShowAddForm(false);
-          toast.success("Задача создана");
         }
       });
     }
@@ -40,11 +68,25 @@ export function DailyTasks() {
     updateTask.mutate({ 
       id: taskId, 
       status: newStatus 
-    }, {
-      onError: () => {
-        toast.error("Не удалось обновить статус задачи");
-      }
     });
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      refetchTasks();
+      toast.success("Задача удалена");
+    } catch (error) {
+      toast.error("Не удалось удалить задачу");
+    }
   };
 
   return (
@@ -90,42 +132,12 @@ export function DailyTasks() {
         ) : (
           <div className="space-y-2">
             {tasks.map((task) => (
-              <div key={task.id} className="task-item group">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={task.status === 'completed'}
-                    onCheckedChange={() => handleToggleTask(task.id, task.status)}
-                    id={`task-dashboard-${task.id}`}
-                  />
-                  <label 
-                    htmlFor={`task-dashboard-${task.id}`}
-                    className={`flex-1 ${task.status === 'completed' ? "line-through text-muted-foreground" : ""}`}
-                  >
-                    {task.title}
-                  </label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={async () => {
-                      const { error } = await supabase
-                        .from('tasks')
-                        .delete()
-                        .eq('id', task.id);
-                      
-                      if (error) {
-                        toast.error("Не удалось удалить задачу");
-                        return;
-                      }
-                      
-                      refetchTasks();
-                      toast.success("Задача удалена");
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+              <TaskItem
+                key={task.id}
+                task={task}
+                onToggle={handleToggleTask}
+                onDelete={handleDeleteTask}
+              />
             ))}
           </div>
         )}
