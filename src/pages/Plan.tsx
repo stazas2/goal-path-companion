@@ -1,4 +1,3 @@
-
 import { useState, useCallback, memo } from "react";
 import { useTasks } from "@/hooks/useTasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +32,7 @@ interface TaskProps {
   selectedTaskId: string | null;
   setSelectedTaskId: (id: string | null) => void;
   subtasks: any[] | undefined;
-  onToggleSubtask: (id: string, status: string) => void;
+  onToggleSubtask: (id: string) => void;
   onRemoveSubtask: (id: string) => Promise<void>;
 }
 
@@ -90,7 +89,7 @@ const Task = memo((props: TaskProps) => {
           parentId={task.id}
           tasks={subtasks || []}
           onAddSubtask={(title) => onAddSubtask(task.id, title)}
-          onToggleSubtask={onToggleSubtask}
+          onToggleSubtask={(id) => onToggleSubtask(id)}
           onRemoveSubtask={onRemoveSubtask}
         />
       )}
@@ -191,6 +190,14 @@ function Plan() {
     });
   }, [addSubtask]);
   
+  const handleToggleSubtask = useCallback((id: string) => {
+    const subtask = subtasks?.find(t => t.id === id);
+    if (subtask) {
+      const newStatus = subtask.status === 'completed' ? 'not_started' : 'completed';
+      updateSubtask.mutate({ id, status: newStatus });
+    }
+  }, [subtasks, updateSubtask]);
+  
   const handleRemoveSubtask = useCallback(async (id: string) => {
     const { error } = await supabase
       .from('tasks')
@@ -288,7 +295,7 @@ function Plan() {
                       selectedTaskId={selectedTask}
                       setSelectedTaskId={setSelectedTask}
                       subtasks={subtasks}
-                      onToggleSubtask={handleStatusChange}
+                      onToggleSubtask={handleToggleSubtask}
                       onRemoveSubtask={handleRemoveSubtask}
                     />
                   ))}
