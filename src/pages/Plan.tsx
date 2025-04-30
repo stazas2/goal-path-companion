@@ -24,19 +24,34 @@ const formatDateToIso = (date: Date) => {
   return date.toISOString().split('T')[0];
 };
 
+interface TaskProps {
+  task: any;
+  onToggle: (id: string, status: string) => void;
+  onStatusChange: (id: string, status: string) => void;
+  onPostpone: (id: string, date: Date) => void;
+  onAddSubtask: (parentId: string, title: string) => void;
+  selectedTaskId: string | null;
+  setSelectedTaskId: (id: string | null) => void;
+  subtasks: any[] | undefined;
+  onToggleSubtask: (id: string, status: string) => void;
+  onRemoveSubtask: (id: string) => Promise<void>;
+}
+
 // Memoized Task component for better performance
-const Task = memo(({ 
-  task, 
-  onToggle, 
-  onStatusChange, 
-  onPostpone, 
-  onAddSubtask,
-  selectedTaskId,
-  setSelectedTaskId,
-  subtasks,
-  onToggleSubtask,
-  onRemoveSubtask
-}) => {
+const Task = memo((props: TaskProps) => {
+  const {
+    task,
+    onToggle,
+    onStatusChange,
+    onPostpone,
+    onAddSubtask,
+    selectedTaskId,
+    setSelectedTaskId,
+    subtasks,
+    onToggleSubtask,
+    onRemoveSubtask
+  } = props;
+  
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   
   return (
@@ -104,6 +119,9 @@ function Plan() {
   
   const selectedDateIso = selectedDate ? formatDateToIso(selectedDate) : formatDateToIso(today);
   
+  const { data: tasks, addTask, updateTask, refetch: refetchTasks } = useTasks({ date: selectedDateIso });
+  const { data: subtasks, addTask: addSubtask, updateTask: updateSubtask } = useTasks({ parentId: selectedTask });
+  
   const getWeekDates = useCallback(() => {
     const dates = [];
     for (let i = 0; i < 7; i++) {
@@ -114,22 +132,19 @@ function Plan() {
   
   const weekDates = getWeekDates();
   
-  const getTasksForDate = useCallback((date: string, tasksList) => {
-    return tasksList?.filter(task => task.date === date) || [];
-  }, []);
+  const getTasksForDate = useCallback((date: string) => {
+    return tasks?.filter(task => task.date === date) || [];
+  }, [tasks]);
   
   const getTasksForWeek = useCallback(() => {
     const weekTasks = [];
     for (let i = 0; i < 7; i++) {
       const date = formatDateToIso(addDays(currentWeekStart, i));
-      const tasksForDate = getTasksForDate(date, tasks);
+      const tasksForDate = getTasksForDate(date);
       weekTasks.push({ date, tasks: tasksForDate });
     }
     return weekTasks;
-  }, [currentWeekStart, getTasksForDate, tasks]);
-
-  const { data: tasks, addTask, updateTask, refetch: refetchTasks } = useTasks({ date: selectedDateIso });
-  const { data: subtasks, addTask: addSubtask, updateTask: updateSubtask } = useTasks({ parentId: selectedTask });
+  }, [currentWeekStart, getTasksForDate]);
 
   const handleStatusChange = useCallback((taskId: string, status: string) => {
     if (subtasks && subtasks.find(t => t.id === taskId)) {

@@ -16,16 +16,18 @@ interface WeekDayTasks {
   tasks: WeekTask[];
 }
 
+interface DayCardProps {
+  day: WeekDayTasks; 
+  onTaskStatusChange: (taskId: string, status: string) => void;
+}
+
 interface WeekViewProps {
   days: WeekDayTasks[];
   onTaskStatusChange: (taskId: string, status: string) => void;
 }
 
 // Memoize the day card component for better performance
-const DayCard = memo(({ day, onTaskStatusChange }: { 
-  day: WeekDayTasks; 
-  onTaskStatusChange: (taskId: string, status: string) => void 
-}) => {
+const DayCard = memo(({ day, onTaskStatusChange }: DayCardProps) => {
   return (
     <Card key={day.date}>
       <CardHeader className="pb-2">

@@ -5,9 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, X } from "lucide-react";
 
+interface Task {
+  id: string;
+  title: string;
+  status: string;
+}
+
 interface SubtasksListProps {
   parentId: string;
-  tasks: any[];
+  tasks: Task[];
   onAddSubtask: (title: string) => void;
   onToggleSubtask: (id: string) => void;
   onRemoveSubtask: (id: string) => void;

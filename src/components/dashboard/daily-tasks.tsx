@@ -7,9 +7,20 @@ import { Plus, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTasks } from "@/hooks/useTasks";
+import { supabase } from "@/integrations/supabase/client";
+
+interface TaskItemProps {
+  task: {
+    id: string;
+    title: string;
+    status: string;
+  };
+  onToggle: (taskId: string, status: string) => void;
+  onDelete: (taskId: string) => Promise<void>;
+}
 
 // Memoize task item for better performance
-const TaskItem = memo(({ task, onToggle, onDelete }) => {
+const TaskItem = memo(({ task, onToggle, onDelete }: TaskItemProps) => {
   return (
     <div key={task.id} className="task-item group">
       <div className="flex items-center space-x-2">
