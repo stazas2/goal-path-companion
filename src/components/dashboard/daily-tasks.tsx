@@ -8,6 +8,7 @@ import { Plus, X, Check } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useTasks } from "@/hooks/useTasks";
 
 export function DailyTasks() {
   const [newTask, setNewTask] = useState("");
@@ -15,57 +16,35 @@ export function DailyTasks() {
 
   const today = new Date().toISOString().split('T')[0];
   
-  const { data: tasks, refetch: refetchTasks } = useQuery({
-    queryKey: ['daily-tasks', today],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('date', today)
-        .is('parent_id', null)
-        .order('created_at');
-      
-      if (error) throw error;
-      return data || [];
-    }
-  });
+  const { data: tasks, addTask, updateTask, refetch: refetchTasks } = useTasks({ date: today });
 
-  const handleAddTask = async () => {
+  const handleAddTask = () => {
     if (newTask.trim()) {
-      const { error } = await supabase
-        .from('tasks')
-        .insert({
-          title: newTask.trim(),
-          date: today,
-          status: 'not_started'
-        });
-
-      if (error) {
-        toast.error("Не удалось создать задачу");
-        return;
-      }
-
-      setNewTask("");
-      setShowAddForm(false);
-      await refetchTasks();
-      toast.success("Задача создана");
+      addTask.mutate({
+        title: newTask.trim(),
+        date: today,
+        status: 'not_started'
+      }, {
+        onSuccess: () => {
+          setNewTask("");
+          setShowAddForm(false);
+          toast.success("Задача создана");
+        }
+      });
     }
   };
 
-  const handleToggleTask = async (taskId: string, currentStatus: string) => {
+  const handleToggleTask = (taskId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'completed' ? 'not_started' : 'completed';
     
-    const { error } = await supabase
-      .from('tasks')
-      .update({ status: newStatus })
-      .eq('id', taskId);
-
-    if (error) {
-      toast.error("Не удалось обновить статус задачи");
-      return;
-    }
-
-    await refetchTasks();
+    updateTask.mutate({ 
+      id: taskId, 
+      status: newStatus 
+    }, {
+      onError: () => {
+        toast.error("Не удалось обновить статус задачи");
+      }
+    });
   };
 
   return (
@@ -139,7 +118,7 @@ export function DailyTasks() {
                         return;
                       }
                       
-                      await refetchTasks();
+                      refetchTasks();
                       toast.success("Задача удалена");
                     }}
                   >

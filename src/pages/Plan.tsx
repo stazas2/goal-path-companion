@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useTasks } from "@/hooks/useTasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,33 +58,32 @@ function Plan() {
     return weekTasks;
   };
 
-  const { data: tasks, addTask: createTask, updateTask, refetch: refetchTasks } = useTasks({ date: selectedDateIso });
-
-  const { data: subtasks, addTask: createSubtask, updateTask: updateSubtask } = useTasks({ parentId: selectedTask });
+  const { data: tasks, addTask, updateTask, refetch: refetchTasks } = useTasks({ date: selectedDateIso });
+  const { data: subtasks, addTask: addSubtask, updateTask: updateSubtask } = useTasks({ parentId: selectedTask });
 
   const handleStatusChange = (taskId: string, status: string) => {
     if (subtasks && subtasks.find(t => t.id === taskId)) {
-      updateSubtask({ id: taskId, status });
+      updateSubtask.mutate({ id: taskId, status });
     } else {
-      updateTask({ id: taskId, status });
+      updateTask.mutate({ id: taskId, status });
     }
   };
 
   const handlePostponeTask = (taskId: string) => {
     const nextDate = format(addDays(new Date(selectedDateIso), 1), 'yyyy-MM-dd');
-    updateTask({ id: taskId, date: nextDate, status: 'postponed' });
+    updateTask.mutate({ id: taskId, date: nextDate, status: 'postponed' });
   };
 
   const handleAddTask = () => {
     if (newTask.trim()) {
-      createTask({ title: newTask.trim(), date: selectedDateIso, status: 'not_started' });
+      addTask.mutate({ title: newTask.trim(), date: selectedDateIso, status: 'not_started' });
       setNewTask('');
       setShowAddTask(false);
     }
   };
 
   const handleAddSubtask = (parentId: string, title: string) => {
-    createSubtask({ title, parent_id: parentId, status: 'not_started' });
+    addSubtask.mutate({ title, parent_id: parentId, status: 'not_started' });
   };
 
   return (

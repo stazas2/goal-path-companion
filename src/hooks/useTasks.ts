@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../integrations/supabase/client'
 import type { Tables, TablesInsert, TablesUpdate } from '../integrations/supabase/types'
@@ -21,32 +22,30 @@ export function useTasks(filters?: { date?: string; parentId?: string }) {
     },
   })
 
-  const addTask = useMutation(
-    async (newTask: TablesInsert<'tasks'>) => {
+  const addTask = useMutation({
+    mutationFn: async (newTask: TablesInsert<'tasks'>) => {
       const { data, error } = await supabase.from('tasks').insert(newTask).select().single()
       if (error) throw error
       return data
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(queryKey)
-        toast.success(parentId ? 'Подзадача добавлена' : 'Задача добавлена')
-      },
-      onError: () => toast.error(parentId ? 'Не удалось добавить подзадачу' : 'Не удалось добавить задачу'),
-    }
-  )
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey })
+      toast.success(parentId ? 'Подзадача добавлена' : 'Задача добавлена')
+    },
+    onError: () => toast.error(parentId ? 'Не удалось добавить подзадачу' : 'Не удалось добавить задачу'),
+  })
 
-  const updateTask = useMutation(
-    async (task: TablesUpdate<'tasks'> & { id: string }) => {
+  const updateTask = useMutation({
+    mutationFn: async (task: TablesUpdate<'tasks'> & { id: string }) => {
       const { data, error } = await supabase.from('tasks').update(task).eq('id', task.id).select().single()
       if (error) throw error
       return data
     },
-    {
-      onSuccess: () => queryClient.invalidateQueries(queryKey),
-      onError: () => toast.error('Не удалось обновить задачу'),
-    }
-  )
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey })
+    },
+    onError: () => toast.error('Не удалось обновить задачу'),
+  })
 
   return { ...tasksQuery, addTask, updateTask }
 }
