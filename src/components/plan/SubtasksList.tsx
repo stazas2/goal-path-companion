@@ -47,10 +47,10 @@ export function SubtasksList({
       {tasks.map((task) => (
         <div key={task.id} className="flex items-center space-x-2">
           <Checkbox
-            checked={task.completed}
+            checked={task.status === 'completed'}
             onCheckedChange={() => onToggleSubtask(task.id)}
           />
-          <span className={task.completed ? "line-through text-muted-foreground" : ""}>
+          <span className={task.status === 'completed' ? "line-through text-muted-foreground" : ""}>
             {task.title}
           </span>
           <Button

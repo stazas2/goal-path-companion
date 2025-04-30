@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, X, Check } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function DailyTasks() {
   const [newTask, setNewTask] = useState("");
@@ -15,7 +16,7 @@ export function DailyTasks() {
   const today = new Date().toISOString().split('T')[0];
   
   const { data: tasks, refetch: refetchTasks } = useQuery({
-    queryKey: ['daily-tasks'],
+    queryKey: ['daily-tasks', today],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tasks')
@@ -112,13 +113,15 @@ export function DailyTasks() {
             {tasks.map((task) => (
               <div key={task.id} className="task-item group">
                 <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={task.status === 'completed'}
-                    onChange={() => handleToggleTask(task.id, task.status)}
-                    className="rounded border-gray-300"
+                    onCheckedChange={() => handleToggleTask(task.id, task.status)}
+                    id={`task-dashboard-${task.id}`}
                   />
-                  <label className={`flex-1 ${task.status === 'completed' ? "line-through text-muted-foreground" : ""}`}>
+                  <label 
+                    htmlFor={`task-dashboard-${task.id}`}
+                    className={`flex-1 ${task.status === 'completed' ? "line-through text-muted-foreground" : ""}`}
+                  >
                     {task.title}
                   </label>
                   <Button

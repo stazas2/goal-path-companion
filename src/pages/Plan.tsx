@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useTasks } from "@/hooks/useTasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { ru } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon, Plus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { TaskStatistics } from "@/components/plan/TaskStatistics";
 import { TaskStatusSelect } from "@/components/plan/TaskStatusSelect";
 import { SubtasksList } from "@/components/plan/SubtasksList";
@@ -15,7 +17,7 @@ import { WeekView } from "@/components/plan/WeekView";
 import { CompletedTasks } from "@/components/plan/CompletedTasks";
 import { AddTaskForm } from "@/components/plan/AddTaskForm";
 import { toast } from "sonner";
-import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
 
 const formatDateToIso = (date: Date) => {
   return date.toISOString().split('T')[0];
@@ -57,7 +59,7 @@ function Plan() {
     return weekTasks;
   };
 
-  const { data: tasks, addTask: createTask, updateTask } = useTasks({ date: selectedDateIso });
+  const { data: tasks, addTask: createTask, updateTask, refetch: refetchTasks } = useTasks({ date: selectedDateIso });
 
   const { data: subtasks, addTask: createSubtask, updateTask: updateSubtask } = useTasks({ parentId: selectedTask });
 
