@@ -99,7 +99,7 @@
     "autoprefixer": "^10.4.20",
     "chromatic": "^11.28.2",
     "cypress": "^14.3.2",
-    "eslint": "^9.9.0",
+    "eslint": "^9.26.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
